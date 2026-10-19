@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON to Table Editor</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Configure Tailwind Class-based Dark Mode -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.05);
+    }
+    .dark ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 h-full flex flex-col font-sans transition-colors duration-200 overflow-hidden">
+
+  <!-- TOP HEADER & TOOLBAR -->
+  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm z-30 px-4 py-2.5 flex-none">
+    <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Logo / App Name -->
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+          <i data-lucide="table-properties" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold leading-tight text-slate-900 dark:text-white">JSON Table Editor</h1>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400" id="table-stats-badge">
+            0 Rows | 0 Columns
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Toolbar Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        
+        <!-- Import / Paste JSON Toggle -->
+        <button id="btn-toggle-json" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition">
+          <i data-lucide="code-2" class="w-4 h-4"></i>
+          <span>Import / Paste JSON</span>
+        </button>
+
+        <div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+
+        <!-- Add Row (Form) Modal Button -->
+        <button id="btn-open-add-form" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Add Row (Form)</span>
+        </button>
+
+        <!-- Quick Add Blank Row -->
+        <button id="btn-add-row-quick" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Quick Row</span>
+        </button>
+
+        <!-- Add Column -->
+        <button id="btn-add-column" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition">
+          <i data-lucide="columns" class="w-4 h-4"></i>
+          <span>Add Column</span>
+        </button>
+
+        <div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+
+        <!-- Undo / Redo -->
+        <div class="flex items-center space-x-1">
+          <button id="btn-undo" disabled class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-600" title="Undo (Ctrl+Z)">
+            <i data-lucide="undo" class="w-4 h-4"></i>
+          </button>
+          <button id="btn-redo" disabled class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-600" title="Redo (Ctrl+Y)">
+            <i data-lucide="redo" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
+
+        <!-- LocalStorage Tools -->
+        <div class="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 p-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+          <button id="btn-save-local" class="px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded flex items-center gap-1">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>Save</span>
+          </button>
+          <button id="btn-load-local" class="px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded flex items-center gap-1">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+            <span>Load</span>
+          </button>
+          <label class="flex items-center gap-1 px-1.5 cursor-pointer text-[11px] text-emerald-800 dark:text-emerald-300">
+            <input type="checkbox" id="chk-autosave" class="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5">
+            <span>Auto</span>
+          </label>
+        </div>
+
+        <!-- Export Dropdown -->
+        <div class="relative inline-block text-left">
+          <button id="btn-export-dropdown" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+          </button>
+          <div id="export-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+            <button id="export-json-pretty" class="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+              Pretty JSON (2 Spaces)
+            </button>
+            <button id="export-json-min" class="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+              Compact JSON (1 Line)
+            </button>
+            <div class="my-1 border-t border-slate-200 dark:border-slate-700"></div>
+            <button id="export-csv" class="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+              Export as CSV
+            </button>
+            <button id="copy-clipboard" class="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+              Copy JSON to Clipboard
+            </button>
+          </div>
+        </div>
+
+        <!-- Dark / Light Theme Toggle -->
+        <button id="btn-toggle-theme" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition">
+          <i data-lucide="sun" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+        </button>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- COLLAPSIBLE RAW JSON INPUT AREA -->
+  <section id="json-input-panel" class="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 px-4 py-3 hidden flex-none transition-all">
+    <div class="max-w-[1920px] mx-auto space-y-2">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="file-json" class="w-4 h-4 text-indigo-500"></i>
+          Paste or Load Raw JSON Data
+        </label>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-500">Presets:</span>
+          <button class="btn-preset text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium" data-preset="users">Users</button>
+          <span class="text-xs text-slate-300 dark:text-slate-600">|</span>
+          <button class="btn-preset text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium" data-preset="products">Products</button>
+          <span class="text-xs text-slate-300 dark:text-slate-600">|</span>
+          <button class="btn-preset text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium" data-preset="tasks">Tasks</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-3">
+          <textarea id="raw-json-textarea" rows="4" class="w-full p-2.5 font-mono text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="Paste JSON array here (e.g. [{ &quot;id&quot;: 1, &quot;name&quot;: &quot;John&quot; }])"></textarea>
+        </div>
+        
+        <div class="flex flex-col justify-between space-y-2">
+          <div id="drop-zone" class="flex-1 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-lg p-2 flex flex-col items-center justify-center text-center cursor-pointer transition bg-white/50 dark:bg-slate-900/50">
+            <i data-lucide="upload-cloud" class="w-5 h-5 text-slate-400 mb-1"></i>
+            <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Drop JSON file here</span>
+            <input type="file" id="file-input" accept=".json" class="hidden">
+          </div>
+          
+          <button id="btn-parse-json" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition">
+            Parse into Table
+          </button>
+        </div>
+      </div>
+      <div id="json-error-msg" class="hidden text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 p-2 rounded border border-red-200 dark:border-red-900 flex items-center gap-1.5">
+        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+        <span id="json-error-text">Invalid JSON string</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEARCH & FILTER TOOLBAR -->
+  <div class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex-none flex items-center justify-between gap-3">
+    <div class="flex items-center space-x-2">
+      <div class="relative">
+        <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" id="global-search-input" placeholder="Global search across all fields..." class="pl-8 pr-3 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none w-64 md:w-80">
+      </div>
+      <button id="btn-clear-filters" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline hidden">Clear All Filters</button>
+    </div>
+
+    <div class="flex items-center space-x-3 text-xs text-slate-500 dark:text-slate-400">
+      <span id="save-status" class="italic text-slate-400"></span>
+      <span class="hidden sm:inline">Double-click cell to edit | Drag <i data-lucide="grip-vertical" class="w-3 h-3 inline align-middle"></i> to reorder rows</span>
+    </div>
+  </div>
+
+  <!-- MAIN TABLE DISPLAY AREA (MAXIMIZED FULL SPACE) -->
+  <main class="flex-1 overflow-auto relative bg-slate-100 dark:bg-slate-900">
+    <table id="main-data-table" class="w-full text-left border-collapse text-xs">
+      <thead class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shadow-sm">
+        <!-- Row 1: Titles and Actions -->
+        <tr id="table-header-titles">
+          <th class="p-2 w-16 text-center bg-slate-200/70 dark:bg-slate-800 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400">
+            #
+          </th>
+          <!-- Dynamic Column Titles -->
+        </tr>
+        <!-- Row 2: Per-Column Filter Inputs -->
+        <tr id="table-header-filters" class="bg-slate-50 dark:bg-slate-800/90 border-b border-slate-300 dark:border-slate-700">
+          <th class="p-1 border-r border-slate-300 dark:border-slate-700 text-center">
+            <i data-lucide="filter" class="w-3 h-3 text-slate-400 mx-auto"></i>
+          </th>
+          <!-- Dynamic Column Input Filters -->
+        </tr>
+      </thead>
+      <tbody id="table-body" class="divide-y divide-slate-200 dark:divide-slate-700/60 font-mono bg-white dark:bg-slate-900">
+        <!-- Table Rows Inserted Dynamically -->
+      </tbody>
+    </table>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center">
+      <div class="bg-indigo-50 dark:bg-indigo-950/50 p-4 rounded-full text-indigo-600 dark:text-indigo-400 mb-3">
+        <i data-lucide="database" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">No Data Loaded</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1">
+        Click "Import / Paste JSON" above or pick a sample preset to load data into the table.
+      </p>
+    </div>
+  </main>
+
+  <!-- BOTTOM STATUS BAR -->
+  <footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between flex-none">
+    <div id="footer-count">Showing 0 of 0 records</div>
+    <div>Shortcuts: <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600">Ctrl+Z</kbd> Undo | <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600">Ctrl+Y</kbd> Redo | <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600">Ctrl+S</kbd> Save</div>
+  </footer>
+
+  <!-- MODAL 1: ADD ROW VIA FORM -->
+  <div id="modal-add-form" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i>
+          Add New Row via Form
+        </h3>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Form Inputs Container -->
+      <div class="p-5 overflow-y-auto space-y-3.5 flex-1" id="add-form-fields-container">
+        <!-- Dynamic Inputs generated based on schema -->
+      </div>
+
+      <!-- Position Selector & Modal Actions -->
+      <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between">
+        <div class="flex items-center space-x-2 text-xs">
+          <label class="text-slate-600 dark:text-slate-300 font-medium">Position:</label>
+          <select id="form-insert-position" class="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded">
+            <option value="end">At End</option>
+            <option value="start">At Beginning</option>
+            <option value="index">At Index...</option>
+          </select>
+          <input type="number" id="form-insert-index" min="1" value="1" class="w-16 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded hidden">
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button class="btn-close-modal px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
+            Cancel
+          </button>
+          <button id="btn-submit-add-form" class="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">
+            Insert Row
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: COMPLEX NESTED OBJECT/ARRAY EDITOR -->
+  <div id="modal-cell-editor" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden">
+      <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white" id="modal-cell-title">Edit Object / Array Cell</h3>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-4">
+        <p class="text-xs text-slate-500 mb-2">Edit valid JSON object or array below:</p>
+        <textarea id="modal-cell-textarea" rows="9" class="w-full font-mono text-xs p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 resize-y"></textarea>
+        <p id="modal-cell-error" class="text-xs text-red-500 mt-1 hidden"></p>
+      </div>
+      <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex justify-end space-x-2">
+        <button class="btn-close-modal px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">Cancel</button>
+        <button id="btn-save-cell-modal" class="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">Save Cell</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC JS -->
+  <script>
+    // --- SAMPLE PRESET DATASETS ---
+    const PRESETS = {
+      users: [
+        { id: 1, name: "Alice Johnson", role: "Developer", active: true, score: 95, skills: ["JS", "React"] },
+        { id: 2, name: "Bob Smith", role: "Designer", active: false, score: 82, skills: ["Figma", "CSS"] },
+        { id: 3, name: "Carol Williams", role: "Manager", active: true, score: 88, skills: ["Agile", "Scrum"] }
+      ],
+      products: [
+        { sku: "PROD-001", title: "Wireless Mouse", category: "Electronics", price: 29.99, inStock: true },
+        { sku: "PROD-002", title: "Mechanical Keyboard", category: "Electronics", price: 89.99, inStock: true },
+        { sku: "PROD-003", title: "Ergonomic Chair", category: "Furniture", price: 249.50, inStock: false }
+      ],
+      tasks: [
+        { taskId: "T-101", title: "Fix authentication bug", priority: "High", completed: false, assignee: "Alice" },
+        { taskId: "T-102", title: "Update documentation", priority: "Low", completed: true, assignee: "Bob" },
+        { taskId: "T-103", title: "Deploy to production", priority: "Critical", completed: false, assignee: "Carol" }
+      ]
+    };
+
+    // --- APPLICATION STATE ---
+    let tableData = [...PRESETS.users];
+    let columnKeys = [];
+    let historyStack = [];
+    let historyPointer = -1;
+    let globalSearchQuery = '';
+    let columnFilters = {};
+    let sortState = { col: null, dir: 'asc' };
+    let currentCellEditMeta = null;
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Initialize Theme Preference
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
+      // 2. Initialize Icons & Schema
+      lucide.createIcons();
+      extractColumns();
+      saveStateToHistory(true);
+      renderTable();
+      setupEventListeners();
+
+      // 3. Check for Autosave
+      if (localStorage.getItem('json_editor_autosave_enabled') === 'true') {
+        document.getElementById('chk-autosave').checked = true;
+        loadFromLocalStorage();
+      }
+    });
+
+    // --- EXTRACT COLUMNS FROM DATA ---
+    function extractColumns() {
+      const keysSet = new Set();
+      tableData.forEach(row => {
+        if (typeof row === 'object' && row !== null) {
+          Object.keys(row).forEach(k => keysSet.add(k));
+        }
+      });
+      columnKeys = Array.from(keysSet);
+      if (columnKeys.length === 0 && tableData.length > 0) {
+        columnKeys = ['value'];
+      }
+    }
+
+    // --- UNDO / REDO HISTORY ---
+    function saveStateToHistory(isInitial = false) {
+      const copy = JSON.parse(JSON.stringify(tableData));
+      if (isInitial) {
+        historyStack = [copy];
+        historyPointer = 0;
+      } else {
+        historyStack = historyStack.slice(0, historyPointer + 1);
+        historyStack.push(copy);
+        historyPointer++;
+      }
+      updateUndoRedoButtons();
+      triggerAutoSaveIfNeeded();
+    }
+
+    function updateUndoRedoButtons() {
+      document.getElementById('btn-undo').disabled = historyPointer <= 0;
+      document.getElementById('btn-redo').disabled = historyPointer >= historyStack.length - 1;
+    }
+
+    function undo() {
+      if (historyPointer > 0) {
+        historyPointer--;
+        tableData = JSON.parse(JSON.stringify(historyStack[historyPointer]));
+        extractColumns();
+        renderTable();
+        updateUndoRedoButtons();
+        triggerAutoSaveIfNeeded();
+      }
+    }
+
+    function redo() {
+      if (historyPointer < historyStack.length - 1) {
+        historyPointer++;
+        tableData = JSON.parse(JSON.stringify(historyStack[historyPointer]));
+        extractColumns();
+        renderTable();
+        updateUndoRedoButtons();
+        triggerAutoSaveIfNeeded();
+      }
+    }
+
+    // --- LOCAL STORAGE HELPERS ---
+    function saveToLocalStorage() {
+      localStorage.setItem('json_editor_data', JSON.stringify(tableData));
+      const timeStr = new Date().toLocaleTimeString();
+      document.getElementById('save-status').textContent = `Saved to LocalStorage at ${timeStr}`;
+    }
+
+    function loadFromLocalStorage() {
+      const saved = localStorage.getItem('json_editor_data');
+      if (saved) {
+        try {
+          tableData = JSON.parse(saved);
+          extractColumns();
+          saveStateToHistory(true);
+          renderTable();
+          document.getElementById('save-status').textContent = 'Loaded from LocalStorage';
+        } catch (e) {
+          alert('Failed to parse saved LocalStorage data.');
+        }
+      }
+    }
+
+    function triggerAutoSaveIfNeeded() {
+      if (document.getElementById('chk-autosave').checked) {
+        saveToLocalStorage();
+      }
+    }
+
+    // --- RENDER TABLE GRID ---
+    function renderTable() {
+      const headerTitlesTr = document.getElementById('table-header-titles');
+      const headerFiltersTr = document.getElementById('table-header-filters');
+      const tbody = document.getElementById('table-body');
+      const emptyState = document.getElementById('empty-state');
+
+      // Clear existing content
+      headerTitlesTr.innerHTML = '<th class="p-2 w-16 text-center bg-slate-200/70 dark:bg-slate-800 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400">#</th>';
+      headerFiltersTr.innerHTML = '<th class="p-1 border-r border-slate-300 dark:border-slate-700 text-center"><i data-lucide="filter" class="w-3 h-3 text-slate-400 mx-auto"></i></th>';
+      tbody.innerHTML = '';
+
+      if (columnKeys.length === 0 || tableData.length === 0) {
+        emptyState.classList.remove('hidden');
+        document.getElementById('table-stats-badge').textContent = '0 Rows | 0 Columns';
+        document.getElementById('footer-count').textContent = 'Showing 0 records';
+        lucide.createIcons();
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+      }
+
+      // Render Headers & Per-Column Filters
+      columnKeys.forEach((key) => {
+        // 1. Column Title Th
+        const thTitle = document.createElement('th');
+        thTitle.className = "p-2 font-semibold text-slate-700 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700 select-none group min-w-[140px]";
+        
+        const isSorted = sortState.col === key;
+        const sortIcon = isSorted ? (sortState.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down';
+
+        thTitle.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="truncate cursor-pointer flex-1" onclick="handleSort('${key}')">${key}</span>
+            <div class="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
+              <button onclick="handleSort('${key}')" title="Sort Column" class="p-1 text-slate-400 hover:text-indigo-600 rounded">
+                <i data-lucide="${sortIcon}" class="w-3.5 h-3.5 ${isSorted ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}"></i>
+              </button>
+              <button onclick="promptRenameColumn('${key}')" title="Rename Column" class="p-1 text-slate-400 hover:text-indigo-600 rounded">
+                <i data-lucide="edit-2" class="w-3 h-3"></i>
+              </button>
+              <button onclick="deleteColumn('${key}')" title="Delete Column" class="p-1 text-slate-400 hover:text-red-600 rounded">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        headerTitlesTr.appendChild(thTitle);
+
+        // 2. Column Filter Th
+        const thFilter = document.createElement('th');
+        thFilter.className = "p-1 border-r border-slate-300 dark:border-slate-700";
+        const filterVal = columnFilters[key] || '';
+        thFilter.innerHTML = `
+          <div class="relative">
+            <input type="text" data-col="${key}" value="${filterVal}" placeholder="Filter..." 
+              class="col-filter-input w-full px-2 py-0.5 text-[11px] rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+          </div>
+        `;
+        headerFiltersTr.appendChild(thFilter);
+      });
+
+      // Actions Column Th
+      const thAction = document.createElement('th');
+      thAction.className = "p-2 w-32 text-center font-semibold text-slate-500 dark:text-slate-400";
+      thAction.innerHTML = "Actions";
+      headerTitlesTr.appendChild(thAction);
+
+      const thActionFilter = document.createElement('th');
+      thActionFilter.className = "p-1 text-center";
+      headerFiltersTr.appendChild(thActionFilter);
+
+      // Process Data (Filtering & Sorting)
+      let processedData = tableData.map((row, originalIndex) => ({ row, originalIndex }));
+
+      // Global Search Filter
+      if (globalSearchQuery.trim() !== '') {
+        const q = globalSearchQuery.toLowerCase();
+        processedData = processedData.filter(({ row }) => {
+          return Object.values(row).some(val => String(val).toLowerCase().includes(q));
+        });
+      }
+
+      // Column Specific Search Filters
+      Object.keys(columnFilters).forEach(col => {
+        const val = columnFilters[col].toLowerCase().trim();
+        if (val) {
+          processedData = processedData.filter(({ row }) => {
+            const cellVal = row[col] !== undefined ? String(row[col]).toLowerCase() : '';
+            return cellVal.includes(val);
+          });
+        }
+      });
+
+      // Sorting Logic
+      if (sortState.col) {
+        const key = sortState.col;
+        const dirMult = sortState.dir === 'asc' ? 1 : -1;
+        processedData.sort((a, b) => {
+          let vA = a.row[key] ?? '';
+          let vB = b.row[key] ?? '';
+          if (typeof vA === 'number' && typeof vB === 'number') {
+            return (vA - vB) * dirMult;
+          }
+          return String(vA).localeCompare(String(vB)) * dirMult;
+        });
+      }
+
+      // Render Table Body Rows
+      processedData.forEach(({ row, originalIndex }, seqIdx) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing";
+        
+        // --- DRAG & DROP EVENT LISTENERS ---
+        tr.draggable = true;
+        tr.dataset.index = originalIndex;
+
+        tr.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', originalIndex);
+          tr.classList.add('opacity-40', 'bg-indigo-100', 'dark:bg-indigo-950');
+        });
+
+        tr.addEventListener('dragend', () => {
+          tr.classList.remove('opacity-40', 'bg-indigo-100', 'dark:bg-indigo-950');
+          document.querySelectorAll('#table-body tr').forEach(row => {
+            row.classList.remove('border-t-2', 'border-indigo-500');
+          });
+        });
+
+        tr.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          tr.classList.add('border-t-2', 'border-indigo-500');
+        });
+
+        tr.addEventListener('dragleave', () => {
+          tr.classList.remove('border-t-2', 'border-indigo-500');
+        });
+
+        tr.addEventListener('drop', (e) => {
+          e.preventDefault();
+          tr.classList.remove('border-t-2', 'border-indigo-500');
+          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const toIndex = originalIndex;
+
+          if (isNaN(fromIndex) || fromIndex === toIndex) return;
+
+          // Reorder tableData array
+          const movedItem = tableData.splice(fromIndex, 1)[0];
+          tableData.splice(toIndex, 0, movedItem);
+
+          saveStateToHistory();
+          renderTable();
+        });
+
+        // Row Sequential Index Cell with Drag Handle
+        const tdIdx = document.createElement('td');
+        tdIdx.className = "p-2 border-r border-slate-200 dark:border-slate-800 text-center font-semibold text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/50 select-none text-[11px]";
+        tdIdx.innerHTML = `
+          <div class="flex items-center justify-center space-x-1">
+            <i data-lucide="grip-vertical" class="w-3 h-3 text-slate-400 cursor-grab"></i>
+            <span>${originalIndex + 1}</span>
+          </div>
+        `;
+        tr.appendChild(tdIdx);
+
+        // Column Cells
+        columnKeys.forEach((key) => {
+          const td = document.createElement('td');
+          td.className = "p-2 border-r border-slate-200 dark:border-slate-800 max-w-xs truncate cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors";
+          
+          const cellValue = row[key];
+          td.appendChild(renderCellContent(cellValue, originalIndex, key));
+
+          // Inline Edit Trigger (Double Click)
+          td.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            startCellInlineEdit(td, originalIndex, key, cellValue);
+          });
+
+          tr.appendChild(td);
+        });
+
+        // Row Action Column (+ Above, + Below, Delete)
+        const tdActions = document.createElement('td');
+        tdActions.className = "p-1 border-slate-200 dark:border-slate-800 text-center";
+        tdActions.innerHTML = `
+          <div class="flex items-center justify-center space-x-1">
+            <button onclick="insertRowAt(${originalIndex})" title="Insert Blank Row Above" class="px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded flex items-center gap-0.5">
+              <i data-lucide="arrow-up" class="w-3 h-3"></i>
+              <span>+ Above</span>
+            </button>
+            <button onclick="insertRowAt(${originalIndex + 1})" title="Insert Blank Row Below" class="px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded flex items-center gap-0.5">
+              <i data-lucide="arrow-down" class="w-3 h-3"></i>
+              <span>+ Below</span>
+            </button>
+            <button onclick="deleteRow(${originalIndex})" title="Delete Row" class="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-slate-200 dark:hover:bg-slate-700">
+              <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        tr.appendChild(tdActions);
+
+        tbody.appendChild(tr);
+      });
+
+      // Update Toolbar & Footer Info
+      document.getElementById('table-stats-badge').textContent = `${tableData.length} Rows | ${columnKeys.length} Columns`;
+      document.getElementById('footer-count').textContent = `Showing ${processedData.length} of ${tableData.length} records`;
+
+      lucide.createIcons();
+      attachFilterInputListeners();
+    }
+
+    // --- RENDER VALUE BADGES & CELLS ---
+    function renderCellContent(val, rowIdx, colKey) {
+      const span = document.createElement('span');
+
+      if (val === undefined || val === null) {
+        span.className = "text-slate-300 dark:text-slate-600 italic";
+        span.textContent = "null";
+      } else if (typeof val === 'boolean') {
+        span.className = val ? "px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+        span.textContent = val ? "TRUE" : "FALSE";
+        span.title = "Click to toggle boolean";
+        span.addEventListener('click', (e) => {
+          e.stopPropagation();
+          tableData[rowIdx][colKey] = !val;
+          saveStateToHistory();
+          renderTable();
+        });
+      } else if (typeof val === 'object') {
+        span.className = "text-indigo-600 dark:text-indigo-400 font-sans text-[11px] underline cursor-pointer";
+        span.textContent = Array.isArray(val) ? `Array[${val.length}]` : `Object{...}`;
+        span.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openCellModalEditor(rowIdx, colKey, val);
+        });
+      } else {
+        span.textContent = String(val);
+      }
+      return span;
+    }
+
+    // --- INLINE EDITING LOGIC ---
+    function startCellInlineEdit(containerTd, rowIdx, colKey, currentVal) {
+      if (typeof currentVal === 'object' && currentVal !== null) {
+        openCellModalEditor(rowIdx, colKey, currentVal);
+        return;
+      }
+
+      containerTd.innerHTML = '';
+      const input = document.createElement('input');
+      input.type = typeof currentVal === 'number' ? 'number' : 'text';
+      input.value = currentVal ?? '';
+      input.className = "w-full px-1 py-0.5 text-xs border border-indigo-500 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none";
+
+      const commitEdit = () => {
+        let newTypedVal = input.value;
+        if (typeof currentVal === 'number') {
+          newTypedVal = input.value === '' ? null : Number(input.value);
+        }
+        tableData[rowIdx][colKey] = newTypedVal;
+        saveStateToHistory();
+        renderTable();
+      };
+
+      input.addEventListener('blur', commitEdit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commitEdit();
+        if (e.key === 'Escape') renderTable();
+      });
+
+      containerTd.appendChild(input);
+      input.focus();
+    }
+
+    // --- ROW & COLUMN MANIPULATION ---
+    function insertRowAt(targetIndex) {
+      const newRow = {};
+      columnKeys.forEach(k => newRow[k] = "");
+      
+      const idx = Math.max(0, Math.min(targetIndex, tableData.length));
+      tableData.splice(idx, 0, newRow);
+      
+      saveStateToHistory();
+      renderTable();
+    }
+
+    function deleteRow(idx) {
+      if (confirm(`Are you sure you want to delete row ${idx + 1}?`)) {
+        tableData.splice(idx, 1);
+        saveStateToHistory();
+        renderTable();
+      }
+    }
+
+    function promptRenameColumn(oldKey) {
+      const newKey = prompt(`Rename column "${oldKey}" to:`, oldKey);
+      if (newKey && newKey.trim() !== '' && newKey !== oldKey) {
+        const cleanKey = newKey.trim();
+        tableData.forEach(row => {
+          if (row.hasOwnProperty(oldKey)) {
+            row[cleanKey] = row[oldKey];
+            delete row[oldKey];
+          }
+        });
+        extractColumns();
+        saveStateToHistory();
+        renderTable();
+      }
+    }
+
+    function deleteColumn(colKey) {
+      if (confirm(`Delete column "${colKey}" and all its values?`)) {
+        tableData.forEach(row => delete row[colKey]);
+        extractColumns();
+        saveStateToHistory();
+        renderTable();
+      }
+    }
+
+    function handleSort(key) {
+      if (sortState.col === key) {
+        if (sortState.dir === 'asc') sortState.dir = 'desc';
+        else sortState.col = null;
+      } else {
+        sortState.col = key;
+        sortState.dir = 'asc';
+      }
+      renderTable();
+    }
+
+    // --- FORM MODAL FOR ROW INSERTION ---
+    function openAddRowFormModal() {
+      const container = document.getElementById('add-form-fields-container');
+      container.innerHTML = '';
+
+      if (columnKeys.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500">No columns exist. Add a column first.</p>`;
+      } else {
+        columnKeys.forEach(key => {
+          const fieldGroup = document.createElement('div');
+          fieldGroup.className = "space-y-1";
+
+          const sampleVal = tableData.find(r => r[key] !== undefined)?.[key];
+          const valType = typeof sampleVal;
+
+          let inputHtml = '';
+          if (valType === 'boolean') {
+            inputHtml = `
+              <div class="flex items-center space-x-2 pt-1">
+                <input type="checkbox" id="form-field-${key}" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Checked = TRUE</span>
+              </div>
+            `;
+          } else if (valType === 'number') {
+            inputHtml = `<input type="number" id="form-field-${key}" step="any" placeholder="Enter number..." class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none">`;
+          } else if (valType === 'object' && sampleVal !== null) {
+            inputHtml = `<textarea id="form-field-${key}" rows="2" placeholder='{"key": "val"} or [1,2]' class="w-full font-mono px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>`;
+          } else {
+            inputHtml = `<input type="text" id="form-field-${key}" placeholder="Enter text..." class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none">`;
+          }
+
+          fieldGroup.innerHTML = `
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">${key}</label>
+            ${inputHtml}
+          `;
+          container.appendChild(fieldGroup);
+        });
+      }
+
+      document.getElementById('modal-add-form').classList.remove('hidden');
+    }
+
+    function submitAddRowForm() {
+      const newRow = {};
+      columnKeys.forEach(key => {
+        const input = document.getElementById(`form-field-${key}`);
+        if (!input) return;
+
+        const sampleVal = tableData.find(r => r[key] !== undefined)?.[key];
+        const valType = typeof sampleVal;
+
+        if (input.type === 'checkbox') {
+          newRow[key] = input.checked;
+        } else if (input.type === 'number') {
+          newRow[key] = input.value === '' ? null : Number(input.value);
+        } else if (valType === 'object') {
+          try {
+            newRow[key] = input.value.trim() ? JSON.parse(input.value) : null;
+          } catch (e) {
+            newRow[key] = input.value;
+          }
+        } else {
+          newRow[key] = input.value;
+        }
+      });
+
+      const posType = document.getElementById('form-insert-position').value;
+      let targetIdx = tableData.length;
+
+      if (posType === 'start') {
+        targetIdx = 0;
+      } else if (posType === 'index') {
+        const inputIdx = parseInt(document.getElementById('form-insert-index').value, 10);
+        targetIdx = isNaN(inputIdx) ? tableData.length : Math.max(0, inputIdx - 1);
+      }
+
+      tableData.splice(targetIdx, 0, newRow);
+      saveStateToHistory();
+      renderTable();
+
+      document.getElementById('modal-add-form').classList.add('hidden');
+    }
+
+    // --- CELL MODAL FOR OBJECTS / ARRAYS ---
+    function openCellModalEditor(rowIdx, colKey, jsonVal) {
+      currentCellEditMeta = { rowIdx, colKey };
+      document.getElementById('modal-cell-title').textContent = `Edit Cell [Row ${rowIdx + 1}, ${colKey}]`;
+      document.getElementById('modal-cell-textarea').value = JSON.stringify(jsonVal, null, 2);
+      document.getElementById('modal-cell-error').classList.add('hidden');
+      document.getElementById('modal-cell-editor').classList.remove('hidden');
+    }
+
+    function saveCellModalEditor() {
+      if (!currentCellEditMeta) return;
+      const rawText = document.getElementById('modal-cell-textarea').value;
+      const errEl = document.getElementById('modal-cell-error');
+
+      try {
+        const parsed = JSON.parse(rawText);
+        tableData[currentCellEditMeta.rowIdx][currentCellEditMeta.colKey] = parsed;
+        saveStateToHistory();
+        renderTable();
+        document.getElementById('modal-cell-editor').classList.add('hidden');
+      } catch (err) {
+        errEl.textContent = `Invalid JSON format: ${err.message}`;
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    // --- EVENT BINDINGS ---
+    function setupEventListeners() {
+      // Toggle RAW JSON Panel
+      document.getElementById('btn-toggle-json').addEventListener('click', () => {
+        document.getElementById('json-input-panel').classList.toggle('hidden');
+      });
+
+      // Parse Raw JSON Textarea
+      document.getElementById('btn-parse-json').addEventListener('click', () => {
+        const text = document.getElementById('raw-json-textarea').value;
+        const errBox = document.getElementById('json-error-msg');
+        try {
+          const parsed = JSON.parse(text);
+          tableData = Array.isArray(parsed) ? parsed : [parsed];
+          extractColumns();
+          saveStateToHistory(true);
+          renderTable();
+          errBox.classList.add('hidden');
+          document.getElementById('json-input-panel').classList.add('hidden');
+        } catch (err) {
+          document.getElementById('json-error-text').textContent = err.message;
+          errBox.classList.remove('hidden');
+        }
+      });
+
+      // Drag & Drop
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-input');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-indigo-500');
+        if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFileSelect(e.target.files[0]);
+      });
+
+      function handleFileSelect(file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          document.getElementById('raw-json-textarea').value = evt.target.result;
+          document.getElementById('btn-parse-json').click();
+        };
+        reader.readAsText(file);
+      }
+
+      // Preset Buttons
+      document.querySelectorAll('.btn-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const presetKey = btn.getAttribute('data-preset');
+          tableData = [...PRESETS[presetKey]];
+          extractColumns();
+          saveStateToHistory(true);
+          renderTable();
+        });
+      });
+
+      // Global Search
+      document.getElementById('global-search-input').addEventListener('input', (e) => {
+        globalSearchQuery = e.target.value;
+        renderTable();
+      });
+
+      // Add Row Form Modal Triggers
+      document.getElementById('btn-open-add-form').addEventListener('click', openAddRowFormModal);
+      document.getElementById('btn-submit-add-form').addEventListener('click', submitAddRowForm);
+      document.getElementById('form-insert-position').addEventListener('change', (e) => {
+        const idxInput = document.getElementById('form-insert-index');
+        if (e.target.value === 'index') idxInput.classList.remove('hidden');
+        else idxInput.classList.add('hidden');
+      });
+
+      // Quick Add Row
+      document.getElementById('btn-add-row-quick').addEventListener('click', () => {
+        insertRowAt(tableData.length);
+      });
+
+      // Add Column
+      document.getElementById('btn-add-column').addEventListener('click', () => {
+        const colName = prompt("Enter new column name:");
+        if (colName && colName.trim()) {
+          const clean = colName.trim();
+          if (!columnKeys.includes(clean)) {
+            columnKeys.push(clean);
+            tableData.forEach(r => r[clean] = "");
+            saveStateToHistory();
+            renderTable();
+          }
+        }
+      });
+
+      // Undo / Redo
+      document.getElementById('btn-undo').addEventListener('click', undo);
+      document.getElementById('btn-redo').addEventListener('click', redo);
+
+      // LocalStorage Buttons
+      document.getElementById('btn-save-local').addEventListener('click', saveToLocalStorage);
+      document.getElementById('btn-load-local').addEventListener('click', loadFromLocalStorage);
+
+      // Export Menu
+      const exportBtn = document.getElementById('btn-export-dropdown');
+      const exportMenu = document.getElementById('export-menu');
+      exportBtn.addEventListener('click', () => exportMenu.classList.toggle('hidden'));
+      document.addEventListener('click', (e) => {
+        if (!exportBtn.contains(e.target) && !exportMenu.contains(e.target)) {
+          exportMenu.classList.add('hidden');
+        }
+      });
+
+      // Export Actions
+      document.getElementById('export-json-pretty').addEventListener('click', () => downloadFile(JSON.stringify(tableData, null, 2), 'data.json', 'application/json'));
+      document.getElementById('export-json-min').addEventListener('click', () => downloadFile(JSON.stringify(tableData), 'data.min.json', 'application/json'));
+      document.getElementById('export-csv').addEventListener('click', () => downloadFile(convertToCSV(tableData), 'data.csv', 'text/csv'));
+      document.getElementById('copy-clipboard').addEventListener('click', () => {
+        navigator.clipboard.writeText(JSON.stringify(tableData, null, 2));
+        alert('JSON copied to clipboard!');
+      });
+
+      // Theme Toggle Button
+      document.getElementById('btn-toggle-theme').addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        const isDark = document.documentElement.classList.contains('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      });
+
+      // Close Modals
+      document.querySelectorAll('.btn-close-modal').forEach(b => {
+        b.addEventListener('click', () => {
+          document.getElementById('modal-add-form').classList.add('hidden');
+          document.getElementById('modal-cell-editor').classList.add('hidden');
+        });
+      });
+
+      document.getElementById('btn-save-cell-modal').addEventListener('click', saveCellModalEditor);
+
+      // Keyboard Shortcuts
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+          e.preventDefault();
+          undo();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+          e.preventDefault();
+          redo();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          saveToLocalStorage();
+        }
+      });
+    }
+
+    function attachFilterInputListeners() {
+      document.querySelectorAll('.col-filter-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const col = e.target.getAttribute('data-col');
+          columnFilters[col] = e.target.value;
+          renderTable();
+        });
+      });
+    }
+
+    function convertToCSV(data) {
+      if (!data || !data.length) return '';
+      const headers = columnKeys.join(',');
+      const rows = data.map(row => {
+        return columnKeys.map(k => {
+          let val = row[k] ?? '';
+          if (typeof val === 'object') val = JSON.stringify(val);
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',');
+      });
+      return [headers, ...rows].join('\n');
+    }
+
+    function downloadFile(content, fileName, contentType) {
+      const a = document.createElement("a");
+      const file = new Blob([content], { type: contentType });
+      a.href = URL.createObjectURL(file);
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  </script>
+</body>
+</html>
