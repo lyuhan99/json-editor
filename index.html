@@ -100,15 +100,16 @@
 
         <div class="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
 
-        <!-- LocalStorage Tools -->
+        <!-- Multi-File Save / Load Tools -->
         <div class="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 p-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+          <input type="text" id="current-filename-input" value="untitled.json" title="Current File Name" class="px-2 py-0.5 text-xs font-medium w-28 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded text-emerald-800 dark:text-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500">
           <button id="btn-save-local" class="px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded flex items-center gap-1">
             <i data-lucide="save" class="w-3.5 h-3.5"></i>
             <span>Save</span>
           </button>
           <button id="btn-load-local" class="px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded flex items-center gap-1">
             <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
-            <span>Load</span>
+            <span>Files</span>
           </button>
           <label class="flex items-center gap-1 px-1.5 cursor-pointer text-[11px] text-emerald-800 dark:text-emerald-300">
             <input type="checkbox" id="chk-autosave" class="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5">
@@ -209,7 +210,7 @@
   </div>
 
   <!-- MAIN TABLE DISPLAY AREA (MAXIMIZED FULL SPACE) -->
-  <main class="flex-1 overflow-auto relative bg-slate-100 dark:bg-slate-900">
+  <main id="main-table-container" class="flex-1 overflow-auto relative bg-slate-100 dark:bg-slate-900">
     <table id="main-data-table" class="w-full text-left border-collapse text-xs">
       <thead class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shadow-sm">
         <!-- Row 1: Titles and Actions -->
@@ -314,6 +315,27 @@
     </div>
   </div>
 
+  <!-- MODAL 3: LOAD/MANAGE MULTIPLE FILES -->
+  <div id="modal-files-manager" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden flex flex-col">
+      <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="folder-open" class="w-4 h-4 text-emerald-600"></i>
+          Saved Files Manager
+        </h3>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-4 max-h-64 overflow-y-auto space-y-2" id="files-list-container">
+        <!-- Render saved files list -->
+      </div>
+      <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex justify-end">
+        <button class="btn-close-modal px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- APPLICATION LOGIC JS -->
   <script>
     // --- SAMPLE PRESET DATASETS ---
@@ -344,6 +366,7 @@
     let columnFilters = {};
     let sortState = { col: null, dir: 'asc' };
     let currentCellEditMeta = null;
+    let currentFileName = 'users.json';
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -353,6 +376,8 @@
       } else {
         document.documentElement.classList.remove('dark');
       }
+
+      document.getElementById('current-filename-input').value = currentFileName;
 
       // 2. Initialize Icons & Schema
       lucide.createIcons();
@@ -364,7 +389,6 @@
       // 3. Check for Autosave
       if (localStorage.getItem('json_editor_autosave_enabled') === 'true') {
         document.getElementById('chk-autosave').checked = true;
-        loadFromLocalStorage();
       }
     });
 
@@ -424,27 +448,100 @@
       }
     }
 
-    // --- LOCAL STORAGE HELPERS ---
+    // --- MULTI-FILE LOCAL STORAGE HELPERS (Enhancement 4) ---
     function saveToLocalStorage() {
-      localStorage.setItem('json_editor_data', JSON.stringify(tableData));
+      const nameInput = document.getElementById('current-filename-input').value.trim() || 'untitled.json';
+      currentFileName = nameInput;
+      
+      let allFiles = {};
+      try {
+        const stored = localStorage.getItem('json_editor_saved_files');
+        if (stored) allFiles = JSON.parse(stored);
+      } catch (e) {
+        allFiles = {};
+      }
+
+      allFiles[currentFileName] = {
+        data: tableData,
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem('json_editor_saved_files', JSON.stringify(allFiles));
       const timeStr = new Date().toLocaleTimeString();
-      document.getElementById('save-status').textContent = `Saved to LocalStorage at ${timeStr}`;
+      document.getElementById('save-status').textContent = `Saved "${currentFileName}" at ${timeStr}`;
     }
 
-    function loadFromLocalStorage() {
-      const saved = localStorage.getItem('json_editor_data');
-      if (saved) {
-        try {
-          tableData = JSON.parse(saved);
-          extractColumns();
-          saveStateToHistory(true);
-          renderTable();
-          document.getElementById('save-status').textContent = 'Loaded from LocalStorage';
-        } catch (e) {
-          alert('Failed to parse saved LocalStorage data.');
-        }
+    function openFilesManagerModal() {
+      const container = document.getElementById('files-list-container');
+      container.innerHTML = '';
+
+      let allFiles = {};
+      try {
+        const stored = localStorage.getItem('json_editor_saved_files');
+        if (stored) allFiles = JSON.parse(stored);
+      } catch (e) {
+        allFiles = {};
       }
+
+      const fileKeys = Object.keys(allFiles);
+      if (fileKeys.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No saved files found in LocalStorage.</p>`;
+      } else {
+        fileKeys.forEach(fileName => {
+          const fileMeta = allFiles[fileName];
+          const rowDiv = document.createElement('div');
+          rowDiv.className = "flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700";
+          
+          rowDiv.innerHTML = `
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-200">${fileName}</p>
+              <p class="text-[10px] text-slate-400">${fileMeta.data.length} records • Updated: ${new Date(fileMeta.updatedAt).toLocaleTimeString()}</p>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button onclick="loadSpecificFile('${fileName}')" class="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium">Load</button>
+              <button onclick="deleteSpecificFile('${fileName}')" class="p-1 text-slate-400 hover:text-red-600 rounded"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
+          `;
+          container.appendChild(rowDiv);
+        });
+      }
+
+      lucide.createIcons();
+      document.getElementById('modal-files-manager').classList.remove('hidden');
     }
+
+    window.loadSpecificFile = function(fileName) {
+      let allFiles = {};
+      try {
+        const stored = localStorage.getItem('json_editor_saved_files');
+        if (stored) allFiles = JSON.parse(stored);
+      } catch (e) {}
+
+      if (allFiles[fileName]) {
+        currentFileName = fileName;
+        document.getElementById('current-filename-input').value = currentFileName;
+        tableData = allFiles[fileName].data;
+        extractColumns();
+        saveStateToHistory(true);
+        renderTable();
+        document.getElementById('save-status').textContent = `Loaded "${fileName}"`;
+        document.getElementById('modal-files-manager').classList.add('hidden');
+      }
+    };
+
+    window.deleteSpecificFile = function(fileName) {
+      if (confirm(`Delete saved file "${fileName}"?`)) {
+        let allFiles = {};
+        try {
+          const stored = localStorage.getItem('json_editor_saved_files');
+          if (stored) allFiles = JSON.parse(stored);
+        } catch (e) {}
+
+        delete allFiles[fileName];
+        localStorage.setItem('json_editor_saved_files', JSON.stringify(allFiles));
+        openFilesManagerModal();
+      }
+    };
 
     function triggerAutoSaveIfNeeded() {
       if (document.getElementById('chk-autosave').checked) {
@@ -454,6 +551,11 @@
 
     // --- RENDER TABLE GRID ---
     function renderTable() {
+      // Enhancement 3: Preserve scroll position offset instead of resetting to top
+      const tableContainer = document.getElementById('main-table-container');
+      const savedScrollTop = tableContainer.scrollTop;
+      const savedScrollLeft = tableContainer.scrollLeft;
+
       const headerTitlesTr = document.getElementById('table-header-titles');
       const headerFiltersTr = document.getElementById('table-header-filters');
       const tbody = document.getElementById('table-body');
@@ -565,7 +667,7 @@
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing";
         
-        // --- DRAG & DROP EVENT LISTENERS ---
+        // --- DRAG & DROP EVENT LISTENERS (Enhancement 1 with clear visual highlight indicator) ---
         tr.draggable = true;
         tr.dataset.index = originalIndex;
 
@@ -577,23 +679,26 @@
         tr.addEventListener('dragend', () => {
           tr.classList.remove('opacity-40', 'bg-indigo-100', 'dark:bg-indigo-950');
           document.querySelectorAll('#table-body tr').forEach(row => {
-            row.classList.remove('border-t-2', 'border-indigo-500');
+            row.classList.remove('border-t-4', 'border-indigo-600', 'bg-indigo-50/80', 'dark:bg-indigo-950/80');
           });
         });
 
         tr.addEventListener('dragover', (e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
-          tr.classList.add('border-t-2', 'border-indigo-500');
+          document.querySelectorAll('#table-body tr').forEach(r => {
+            r.classList.remove('border-t-4', 'border-indigo-600', 'bg-indigo-50/80', 'dark:bg-indigo-950/80');
+          });
+          tr.classList.add('border-t-4', 'border-indigo-600', 'bg-indigo-50/80', 'dark:bg-indigo-950/80');
         });
 
         tr.addEventListener('dragleave', () => {
-          tr.classList.remove('border-t-2', 'border-indigo-500');
+          tr.classList.remove('border-t-4', 'border-indigo-600', 'bg-indigo-50/80', 'dark:bg-indigo-950/80');
         });
 
         tr.addEventListener('drop', (e) => {
           e.preventDefault();
-          tr.classList.remove('border-t-2', 'border-indigo-500');
+          tr.classList.remove('border-t-4', 'border-indigo-600', 'bg-indigo-50/80', 'dark:bg-indigo-950/80');
           const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
           const toIndex = originalIndex;
 
@@ -664,6 +769,10 @@
 
       lucide.createIcons();
       attachFilterInputListeners();
+
+      // Restore scroll position after render
+      tableContainer.scrollTop = savedScrollTop;
+      tableContainer.scrollLeft = savedScrollLeft;
     }
 
     // --- RENDER VALUE BADGES & CELLS ---
@@ -936,6 +1045,8 @@
       });
 
       function handleFileSelect(file) {
+        currentFileName = file.name;
+        document.getElementById('current-filename-input').value = currentFileName;
         const reader = new FileReader();
         reader.onload = (evt) => {
           document.getElementById('raw-json-textarea').value = evt.target.result;
@@ -949,6 +1060,8 @@
         btn.addEventListener('click', () => {
           const presetKey = btn.getAttribute('data-preset');
           tableData = [...PRESETS[presetKey]];
+          currentFileName = `${presetKey}.json`;
+          document.getElementById('current-filename-input').value = currentFileName;
           extractColumns();
           saveStateToHistory(true);
           renderTable();
@@ -995,7 +1108,7 @@
 
       // LocalStorage Buttons
       document.getElementById('btn-save-local').addEventListener('click', saveToLocalStorage);
-      document.getElementById('btn-load-local').addEventListener('click', loadFromLocalStorage);
+      document.getElementById('btn-load-local').addEventListener('click', openFilesManagerModal);
 
       // Export Menu
       const exportBtn = document.getElementById('btn-export-dropdown');
@@ -1008,9 +1121,9 @@
       });
 
       // Export Actions
-      document.getElementById('export-json-pretty').addEventListener('click', () => downloadFile(JSON.stringify(tableData, null, 2), 'data.json', 'application/json'));
-      document.getElementById('export-json-min').addEventListener('click', () => downloadFile(JSON.stringify(tableData), 'data.min.json', 'application/json'));
-      document.getElementById('export-csv').addEventListener('click', () => downloadFile(convertToCSV(tableData), 'data.csv', 'text/csv'));
+      document.getElementById('export-json-pretty').addEventListener('click', () => downloadFile(JSON.stringify(tableData, null, 2), currentFileName, 'application/json'));
+      document.getElementById('export-json-min').addEventListener('click', () => downloadFile(JSON.stringify(tableData), currentFileName.replace('.json', '.min.json'), 'application/json'));
+      document.getElementById('export-csv').addEventListener('click', () => downloadFile(convertToCSV(tableData), currentFileName.replace('.json', '.csv'), 'text/csv'));
       document.getElementById('copy-clipboard').addEventListener('click', () => {
         navigator.clipboard.writeText(JSON.stringify(tableData, null, 2));
         alert('JSON copied to clipboard!');
@@ -1028,6 +1141,7 @@
         b.addEventListener('click', () => {
           document.getElementById('modal-add-form').classList.add('hidden');
           document.getElementById('modal-cell-editor').classList.add('hidden');
+          document.getElementById('modal-files-manager').classList.add('hidden');
         });
       });
 
@@ -1050,14 +1164,58 @@
       });
     }
 
+    // --- Enhancement 2: Column Filter Search without losing focus ---
     function attachFilterInputListeners() {
       document.querySelectorAll('.col-filter-input').forEach(input => {
+        // Prevent full table re-render on every keystroke that re-focuses/deselects the input.
+        // Instead, update state silently and only filter rows dynamically without destroying/recreating DOM inputs.
         input.addEventListener('input', (e) => {
           const col = e.target.getAttribute('data-col');
           columnFilters[col] = e.target.value;
-          renderTable();
+          
+          // Apply filter visually to rows without destroying inputs
+          applyRowFiltering();
         });
       });
+    }
+
+    function applyRowFiltering() {
+      const tbody = document.getElementById('table-body');
+      const rows = tbody.querySelectorAll('tr');
+
+      let visibleCount = 0;
+      rows.forEach(tr => {
+        const originalIndex = parseInt(tr.dataset.index, 10);
+        const row = tableData[originalIndex];
+        let matches = true;
+
+        // Global search check
+        if (globalSearchQuery.trim() !== '') {
+          const q = globalSearchQuery.toLowerCase();
+          const matchesGlobal = Object.values(row).some(val => String(val).toLowerCase().includes(q));
+          if (!matchesGlobal) matches = false;
+        }
+
+        // Column filters check
+        Object.keys(columnFilters).forEach(col => {
+          const val = columnFilters[col].toLowerCase().trim();
+          if (val) {
+            const cellVal = row[col] !== undefined ? String(row[col]).toLowerCase() : '';
+            if (!cellVal.includes(val)) {
+              matches = false;
+            }
+          }
+        });
+
+        if (matches) {
+          tr.style.display = '';
+          visibleCount++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      document.getElementById('footer-count').textContent = `Showing ${visibleCount} of ${tableData.length} records`;
     }
 
     function convertToCSV(data) {
